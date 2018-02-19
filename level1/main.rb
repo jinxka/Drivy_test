@@ -13,15 +13,14 @@ class Main
   end
   
   def call
-    rentalPrice
-    File.open('my_output.json', 'w') { |file| file.write(@price) }
+    File.open('my_output.json', 'w') { |file| file.write(rentalPrice) }
   end
   
   private
   
   def rentalPrice
     @rentals.collect! { |rental| calculatePrice(rental) }
-    @price = JSON.pretty_generate({rentals: @rentals})
+    JSON.pretty_generate({rentals: @rentals})
   end
   
   def calculateRentalPrice(rental)
