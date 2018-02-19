@@ -60,11 +60,11 @@ class Main
     @duration = (Date.parse(rental['end_date']) - Date.parse(rental['start_date'])).to_i + 1
     durationPrice = 0
     [1..@duration].each_with_index{ |_, index|
-      if index >= 10
+      if index > 10
         durationPrice += price_per_day * 0.5
-      elsif index >= 4
+      elsif index > 4
         durationPrice += price_per_day * 0.7
-      elsif index >= 1
+      elsif index > 1
         durationPrice += price_per_day * 0.9
       else
         durationPrice += price_per_day
