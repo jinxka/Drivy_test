@@ -24,24 +24,24 @@ class Main
   end
   
   def calculatePrice(rental)
-    durationPrice = getDurationPrice(rental)
+    durationPrice = durationPrice(rental)
     distancePrice = rental['distance'] * @cars[rental['car_id']]['price_per_km']
     {id: rental['id'], price: durationPrice + distancePrice}
   end
-  
-  def getDurationPrice(rental)
+
+  def durationPrice(rental)
     price_per_day = @cars[rental['car_id']]['price_per_day']
-    duration = (Date.parse(rental['end_date']) - Date.parse(rental['start_date'])).to_i + 1
+    @duration = (Date.parse(rental['end_date']) - Date.parse(rental['start_date'])).to_i + 1
     durationPrice = 0
-    (Array.new(duration)).each_with_index{ |_, index|
-        if index > 10
-          durationPrice += price_per_day * 0.5
-        elsif index > 4
-          durationPrice += price_per_day * 0.7
-        elsif index > 1
-          durationPrice += price_per_day * 0.9
-        else
-          durationPrice += price_per_day
+    (1..@duration).to_a.each_with_index{ |_, index|
+      if index >= 10
+        durationPrice += price_per_day * 0.5
+      elsif index >= 4
+        durationPrice += price_per_day * 0.7
+      elsif index >= 1
+        durationPrice += price_per_day * 0.9
+      else
+        durationPrice += price_per_day
       end
     }
     durationPrice.to_i

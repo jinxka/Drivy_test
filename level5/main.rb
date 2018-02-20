@@ -20,31 +20,67 @@ class Main
   private
   
   def rentalPrice
-    @rentals.collect! { |rental| calculatePrice(rental) }
+    @rentals.collect! { |rental| calculateOption(rental)}
     {rentals: @rentals}
   end
   
-  def calculatePrice(rental)
-    durationPrice = getDurationPrice(rental)
-    distancePrice = rental['distance'] * @cars[rental['car_id']]['price_per_km']
-    @price = durationPrice + distancePrice
-    commission = calculateCommission(rental)
+  def calculateOption(rental)
+    bill = calculatePrice(rental)
     {
         id: rental['id'],
-        price: @price,
-        option: deductibleReduction(rental),
+        action:[
+            {
+                "who": "driver",
+                "type": "debit",
+                "amount": bill[:price] + bill[:option][:deductible_reduction]
+            },
+            {
+                "who": "owner",
+                "type": "credit",
+                "amount": bill[:price] - (bill[:commission][:insurance_fee] + bill[:commission][:assistance_fee] + bill[:commission][:drivy_fee])
+            },
+            {
+                "who": "insurance",
+                "type": "credit",
+                "amount": bill[:commission][:insurance_fee]
+            },
+            {
+                "who": "assistance",
+                "type": "credit",
+                "amount": bill[:commission][:assistance_fee]
+            },
+            {
+                "who": "drivy",
+                "type": "credit",
+                "amount": bill[:commission][:drivy_fee]+ bill[:option][:deductible_reduction]
+            }
+        ]
+    }
+  end
+  
+  def calculatePrice(rental)
+    durationPrice = durationPrice(rental)
+    distancePrice = rental['distance'] * @cars[rental['car_id']]['price_per_km']
+    price = durationPrice + distancePrice
+    commission = calculateCommission(price)
+    {
+        id: rental['id'],
+        price: price,
+        option:
+            {
+                deductible_reduction: deductibleReduction(rental)
+            },
         commission: commission
     }
   end
   
   def deductibleReduction(rental)
-    deductible_reduction = 0
-    deductible_reduction = @duration * 400 if rental['deductible_reduction']
-    {deductible_reduction: deductible_reduction}
+    return @duration * 400 if rental['deductible_reduction']
+    0
   end
   
-  def calculateCommission(rental)
-    commission = @price * 0.3
+  def calculateCommission(price)
+    commission = price * 0.3
     assistance_fee = @duration * 100
     insurance_fee = (commission * 0.5).to_i
     drivy_fee = insurance_fee - assistance_fee
@@ -55,11 +91,11 @@ class Main
     }
   end
 
-  def getDurationPrice(rental)
+  def durationPrice(rental)
     price_per_day = @cars[rental['car_id']]['price_per_day']
     @duration = (Date.parse(rental['end_date']) - Date.parse(rental['start_date'])).to_i + 1
     durationPrice = 0
-    (Array.new(@duration)).each_with_index{ |_, index|
+    (1..@duration).to_a.each_with_index{ |_, index|
       if index >= 10
         durationPrice += price_per_day * 0.5
       elsif index >= 4
