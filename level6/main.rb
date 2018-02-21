@@ -25,77 +25,47 @@ class Main
     {rentals: rentals}
   end
 
-  def rentalOption
-    rentals = @rentals.collect { |rental| calculateOption(rental)}
+  def rentalAction
+    rentals = @rentals.collect { |rental| calculateAction(rental)}
     {rentals: rentals}
   end
-  
+
   def rentalModifPrice
-    rentalsOption = rentalOption
+    rentalsAction = rentalAction
     updateRentals
-    rentalsOptionModif= rentalOption
-    compareOptionModif(rentalsOption, rentalsOptionModif)
+    rentalsActionModif= rentalAction
+    compareActionModif(rentalsAction, rentalsActionModif[:rentals])
   end
   
-  def compareOptionModif(rentalsOption, rentalsOptionModif)
-    rentalsModif= {"rental_modifications": []}
-    rentalsOption[:rentals].each_with_index do |rental, rental_index|
-      next if rental == rentalsOptionModif[:rentals][rental_index]
-      rentalModif = {      "id": rentalsOptionModif[:rentals][rental_index][:id],
-                            "rental_id": rental[:id],
-                            "actions": []}
-      rental[:action].each_with_index do |action, action_index|
-        action[:amount] = rentalsOptionModif[:rentals][rental_index][:action][action_index][:amount] - action[:amount]
-        action[:type] = action[:type] == "debit" ? "credit" : "debit" if action[:amount] < 0
-        action[:amount] *= -1 if action[:amount] < 0
-        rentalModif[:actions].push(action)
-      end
-      rentalsModif[:rental_modifications].push(rentalModif)
-    end
-    rentalsModif
-  end
-    
-  def updateRentals
-    @rentalsModif.each do |rentalModif|
-      @rentals.each_with_index { |rental, index|
-        if rental['id'] == rentalModif['rental_id']
-          @rentals[index].merge!(rentalModif)
-          @rentals[index]['id'] = rentalModif['rental_id']
-        end
-      }
-    end
-    
-  end
-  
-  def calculateOption(rental)
+  def calculateAction(rental)
     bill = calculatePrice(rental)
     {
         id: rental['id'],
         action:[
             {
-                "who": "driver",
-                "type": "debit",
-                "amount": bill[:price] + bill[:option][:deductible_reduction]
+                who: "driver",
+                type: "debit",
+                amount: bill[:price] + bill[:Action][:deductible_reduction]
             },
             {
-                "who": "owner",
-                "type": "credit",
-                "amount": bill[:price] - (bill[:commission][:insurance_fee] + bill[:commission][:assistance_fee] + bill[:commission][:drivy_fee])
+                who: "owner",
+                type: "credit",
+                amount: bill[:price] - (bill[:commission][:insurance_fee] + bill[:commission][:assistance_fee] + bill[:commission][:drivy_fee])
             },
             {
-                "who": "insurance",
-                "type": "credit",
-                "amount": bill[:commission][:insurance_fee]
+                who: "insurance",
+                type: "credit",
+                amount: bill[:commission][:insurance_fee]
             },
             {
-                "who": "assistance",
-                "type": "credit",
-                "amount": bill[:commission][:assistance_fee]
+                who: "assistance",
+                type: "credit",
+                amount: bill[:commission][:assistance_fee]
             },
             {
-                "who": "drivy",
-                "type": "credit",
-                "amount": bill[:commission][:drivy_fee]+ bill[:option][:deductible_reduction]
+                who: "drivy",
+                type: "credit",
+                amount: bill[:commission][:drivy_fee]+ bill[:Action][:deductible_reduction]
             }
         ]
     }
@@ -109,17 +79,12 @@ class Main
     {
         id: rental['id'],
         price: price,
-        option:
+        Action:
             {
-                deductible_reduction: deductibleReduction(rental)
+                deductible_reduction: rental['deductible_reduction'] ? @duration * 400 : 0
             },
         commission: commission
     }
-  end
-  
-  def deductibleReduction(rental)
-    return @duration * 400 if rental['deductible_reduction']
-    0
   end
   
   def calculateCommission(price)
@@ -128,9 +93,9 @@ class Main
     insurance_fee = (commission * 0.5).to_i
     drivy_fee = insurance_fee - assistance_fee
     {
-        "insurance_fee": insurance_fee,
-        "assistance_fee": assistance_fee,
-        "drivy_fee": drivy_fee
+        insurance_fee: insurance_fee,
+        assistance_fee: assistance_fee,
+        drivy_fee: drivy_fee
     }
   end
 
@@ -150,5 +115,39 @@ class Main
       end
     }
     durationPrice.to_i
+  end
+
+  def updateRentals
+    @rentalsModif.each do |rentalModif|
+      @rentals.each_with_index { |rental, index|
+        if rental['id'] == rentalModif['rental_id']
+          @rentals[index].merge!(rentalModif)
+        end
+      }
+    end
+  end
+
+  def compareActionModif(rentalsAction, rentalsActionModif)
+    rentalsModif= { rental_modifications: [] }
+    rentalsAction[:rentals].each_with_index do |rental, rental_index|
+      next if rental == rentalsActionModif[rental_index]
+      actionModif = { id: rentalsActionModif[rental_index][:id],
+                      rental_id: rental[:id],
+                      actions: [] }
+      rental[:action].each_with_index do |action, action_index|
+        actionModif[:actions].push(createActionModif(action, rentalsActionModif[rental_index][:action][action_index][:amount]))
+      end
+      rentalsModif[:rental_modifications].push(actionModif)
+    end
+    rentalsModif
+  end
+
+  def createActionModif(action, newAmount)
+    action[:amount] = newAmount - action[:amount]
+    if action[:amount] < 0
+      action[:type] = action[:type] == "debit" ? "credit" : "debit"
+      action[:amount] *= -1
+    end
+    action
   end
 end
